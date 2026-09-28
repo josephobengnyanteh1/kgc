@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin — Kingdom Glory Church</title><meta name="theme-color" content="#060504"><link rel="icon" href="/images/kgc-logo.jpg"><meta name="robots" content="noindex">
+<script src="/js/boot.js"></script><link rel="stylesheet" href="/css/style.css">
+</head><body>
+<header class="header scrolled"><nav class="nav wrap" aria-label="Main"><a class="brand" href="/"><img src="/images/kgc-logo.jpg" alt="Kingdom Glory Church"><span>KINGDOM GLORY</span></a><ul class="links"><li><a href="/">Website</a></li><li><a href="/member.html">Portal</a></li><li><a href="/finance.html">Giving</a></li><li class="admin-only hidden"><a href="/admin.html">Admin</a></li><li><button id="logout" class="btn btn-sm" type="button">Sign out</button></li></ul><button class="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span></button></nav></header>
+<main class="portal"><div class="wrap">
+  <div class="phead"><div><span class="label">SECURE ADMINISTRATION</span><h1>Church dashboard</h1></div></div>
+  <div class="tabs" id="mainTabs" role="tablist"></div>
+
+  <section id="v-members" class="hidden">
+    <div class="tabs" id="mFilters"><button class="tab" aria-selected="true" data-s="PENDING">Pending</button><button class="tab" aria-selected="false" data-s="ACTIVE">Active</button><button class="tab" aria-selected="false" data-s="REJECTED">Rejected</button><button class="tab" aria-selected="false" data-s="SUSPENDED">Suspended</button></div>
+    <div class="panel"><div class="tscroll"><table><thead><tr><th>Member</th><th>Branch</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead><tbody id="mRows"></tbody></table></div></div>
+  </section>
+
+  <section id="v-finance" class="hidden">
+    <div class="stats" id="fSummary"></div>
+    <div class="tabs" id="fFilters"><button class="tab" aria-selected="true" data-s="PENDING">Pending</button><button class="tab" aria-selected="false" data-s="VERIFIED">Verified</button><button class="tab" aria-selected="false" data-s="FAILED">Failed</button><button class="tab" aria-selected="false" data-s="ALL">All</button></div>
+    <div class="panel"><div class="tscroll"><table><thead><tr><th>Date</th><th>Member</th><th>Type</th><th>Amount</th><th>Method / ref</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fRows"></tbody></table></div></div>
+  </section>
+
+  <section id="v-messages" class="hidden"><div class="panel"><div class="tscroll"><table><thead><tr><th>From</th><th>Topic</th><th>Message</th><th>Received</th><th></th></tr></thead><tbody id="gRows"></tbody></table></div></div></section>
+</div></main>
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="modal-card"><button class="x" id="close" aria-label="Close">×</button><div id="detail"></div></div></div>
+<script src="/js/app.js"></script><script src="/js/portal.js"></script><script src="/js/admin.js"></script>
+</body></html>

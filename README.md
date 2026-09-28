@@ -1,30 +1,41 @@
-# Kingdom Glory Church — Phase 2 Backend
+# Kingdom Glory Church — website & member portal
 
-This project now includes the Phase 1 frontend and a Phase 2 backend foundation.
+Static website (`/public`) + Express API (`server.js`) + Supabase (database and private photo storage), hosted on Vercel.
 
-## Requirements
-- Node.js 20+
-- PostgreSQL 15+
+## Why your Vercel site showed `500 FUNCTION_INVOCATION_FAILED`
+`server.js` tried to create a `private_uploads` folder when it started. Vercel's disk is read-only, so the function crashed before it could answer any request (`ENOENT … mkdir '/var/task/private_uploads'`). This version stores photos in Supabase Storage instead, and never writes to disk.
 
-## Setup
-1. Copy `.env.example` to `.env` and set `DATABASE_URL`, `JWT_SECRET`, and `CORS_ORIGIN`.
-2. Create a PostgreSQL database named `kgc` and run `db/schema.sql`.
-3. Install dependencies: `npm install`
-4. Start: `npm start`
-5. Open `http://localhost:3000/register.html`.
+## Setup (about 15 minutes)
 
-## Security foundations
-- Helmet security headers
-- HTTP-only authentication cookie
-- bcrypt password hashing
-- Rate limiting
-- Strict request validation with Zod
-- MIME/size-limited profile uploads with random filenames
-- Parameterized PostgreSQL queries
-- Audit logging
-- Pending-account state before activation
+### 1. Supabase
+1. Create a project at supabase.com. Save the database password.
+2. **SQL Editor** → paste `db/schema.sql` → **Run**. Then run `db/seed.sql` (edit branch names first).
+3. **Project Settings → Database → Connection string → Transaction pooler**. Copy it (port 6543) and put your password in. This is `DATABASE_URL`.
+4. **Project Settings → API**: copy the *Project URL* (`SUPABASE_URL`) and the *service_role* key (`SUPABASE_SERVICE_ROLE_KEY`). Keep the service_role key secret; never put it in browser code.
+5. The private `member-photos` storage bucket is created automatically on the first photo upload.
 
-## Production requirements
-Use HTTPS, a strong randomly generated JWT secret, a managed PostgreSQL database, private object storage for photos, email/phone verification, MFA for privileged roles, centralized logging/monitoring, backups, and independent security testing before production use.
-# KGC
-# kgc
+### 2. Vercel → Project → Settings → Environment Variables
+Add: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` (32+ random characters), `SUPABASE_PHOTO_BUCKET` (`member-photos`).
+Generate a secret with: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+Then commit and push (or **Redeploy**).
+
+### 3. Test
+Open `https://YOUR-SITE.vercel.app/api/health` → should show `{"ok":true,"database":"connected"}`.
+
+### 4. Make yourself the first admin
+Register on `/register.html` with your email, then run `db/make-admin.sql` (with your email) in the Supabase SQL Editor. Sign in at `/login.html`; you will land on the admin dashboard.
+
+## Editing the website
+- **Church details** (phone, email, address, service times, live-stream link, social links): `public/js/config.js`. Every value is a sample; replace them.
+- **Events, sermons, branches**: Supabase → Table Editor → `events`, `sermons`, `branches`. Changes show on the site within about a minute.
+- **Photos**: replace `public/images/hero.jpg` with a larger image (at least 1920 px wide) for a sharper hero.
+
+## Run locally
+```
+cp .env.example .env    # fill in the values
+npm install
+npm start               # http://localhost:3000
+```
+
+## Roles
+`MEMBER`, `BRANCH_ADMIN` (own branch only), `FINANCE_OFFICER`, `CHURCH_ADMIN`, `SUPER_ADMIN`. Change a person's role in Supabase → `users` table.

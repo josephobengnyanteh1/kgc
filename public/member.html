@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Member Portal — Kingdom Glory Church</title><meta name="theme-color" content="#060504"><link rel="icon" href="/images/kgc-logo.jpg">
+<script src="/js/boot.js"></script><link rel="stylesheet" href="/css/style.css">
+</head><body>
+<header class="header scrolled"><nav class="nav wrap" aria-label="Main"><a class="brand" href="/"><img src="/images/kgc-logo.jpg" alt="Kingdom Glory Church"><span>KINGDOM GLORY</span></a><ul class="links"><li><a href="/">Website</a></li><li><a href="/member.html">Portal</a></li><li><a href="/finance.html">Giving</a></li><li class="admin-only hidden"><a href="/admin.html">Admin</a></li><li><button id="logout" class="btn btn-sm" type="button">Sign out</button></li></ul><button class="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span></button></nav></header>
+<main class="portal"><div class="wrap">
+  <div id="error" class="notice hidden" role="alert"></div>
+  <div class="pgrid">
+    <aside class="side">
+      <div class="who"><div id="avatarBox" class="avatar">K</div><strong id="sideName"><span class="skel" style="display:block;width:60%;margin:auto"></span></strong><small id="sideBranch" class="muted" style="color:var(--mist)">&nbsp;</small></div>
+      <nav class="snav" aria-label="Portal"><a class="on" href="#overview">Overview</a><a href="#profile">My profile</a><a href="#activity">Activity</a><a href="/finance.html">Giving</a></nav>
+    </aside>
+    <div>
+      <div class="phead" id="overview"><div><span class="label">MEMBER PORTAL</span><h1>Welcome, <span id="name">friend</span></h1></div><span id="status" class="badge">…</span></div>
+      <div class="stats"><div class="stat" data-reveal><small>MEMBER SINCE</small><strong id="since">—</strong></div><div class="stat" data-reveal style="--d:.08s"><small>BRANCH</small><strong id="statBranch">—</strong></div><div class="stat" data-reveal style="--d:.16s"><small>MINISTRY</small><strong id="statMinistry">—</strong></div></div>
+      <section class="panel" id="profile" data-reveal><h2>My profile</h2><div class="details" id="details"></div></section>
+      <section class="panel" id="activity" data-reveal><h2>Recent activity</h2><ul class="tl" id="activityList"><li><span class="skel" style="display:block"></span></li></ul></section>
+      <section class="panel" data-reveal><h2>Giving</h2><p>Record your tithes and offerings and follow their verification.</p><a class="btn btn-sm" style="margin-top:1rem" href="/finance.html">Open giving</a></section>
+    </div>
+  </div>
+</div></main>
+<script src="/js/app.js"></script><script src="/js/portal.js"></script><script src="/js/member.js"></script>
+</body></html>
