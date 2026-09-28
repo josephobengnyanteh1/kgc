@@ -27,3 +27,4 @@ This project now includes the Phase 1 frontend and a Phase 2 backend foundation.
 ## Production requirements
 Use HTTPS, a strong randomly generated JWT secret, a managed PostgreSQL database, private object storage for photos, email/phone verification, MFA for privileged roles, centralized logging/monitoring, backups, and independent security testing before production use.
 # KGC
+# kgc
