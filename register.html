@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Member Registration | Kingdom Glory Church</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.register-wrap{max-width:900px;margin:50px auto;padding:0 20px}.register-card{background:#fff;border-radius:18px;padding:32px;box-shadow:0 10px 35px rgba(0,0,0,.1)}
+.photo-box{text-align:center;margin-bottom:25px}.photo-preview{width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid #c9a227;background:#eee;display:block;margin:10px auto}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}.field input,.field select,.field textarea{padding:13px;border:1px solid #ccc;border-radius:9px;font:inherit}.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #c9a227}.notice{padding:14px;border-radius:9px;background:#fff7d6;margin:20px 0}.submit-row{margin-top:25px}.btn-wide{width:100%;border:0;cursor:pointer}.back{display:inline-block;margin-bottom:20px}.small{font-size:.85rem;color:#666}@media(max-width:650px){.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.register-card{padding:20px}}
+</style>
+</head><body>
+<header class="site-header"><nav class="navbar container"><a class="brand" href="index.html"><img src="images/kgc-logo.jpg" alt="Kingdom Glory Church logo"><span>Kingdom Glory Church</span></a></nav></header>
+<main class="register-wrap"><a class="back" href="index.html">← Back to KGC website</a><div class="register-card">
+<p class="eyebrow dark">MEMBER REGISTRATION</p><h1>Join Kingdom Glory Church</h1><p>Create your member account. Your registration will be reviewed by an authorized KGC administrator before your account becomes active.</p>
+<form id="registrationForm" novalidate>
+<div class="photo-box"><label for="photo"><strong>Profile Photo</strong></label><img id="photoPreview" class="photo-preview" src="images/kgc-logo.jpg" alt="Profile preview"><input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"><p class="small">JPG, PNG or WebP. Maximum 5 MB.</p></div>
+<div class="form-grid">
+<div class="field"><label for="fullName">Full name *</label><input id="fullName" name="fullName" required autocomplete="name"></div>
+<div class="field"><label for="dob">Date of birth *</label><input id="dob" name="dob" type="date" required></div>
+<div class="field"><label for="gender">Gender *</label><select id="gender" name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Prefer not to say</option></select></div>
+<div class="field"><label for="phone">Phone number *</label><input id="phone" name="phone" type="tel" required autocomplete="tel"></div>
+<div class="field"><label for="email">Email address *</label><input id="email" name="email" type="email" required autocomplete="email"></div>
+<div class="field"><label for="branch">KGC branch *</label><select id="branch" name="branch" required><option value="">Select branch</option><option>Branch 1</option><option>Branch 2</option><option>Branch 3</option></select></div>
+<div class="field"><label for="ministry">Ministry / department</label><select id="ministry" name="ministry"><option value="">Select (optional)</option><option>Worship / Music</option><option>Youth</option><option>Children</option><option>Media</option><option>Evangelism</option><option>Ushering</option><option>Other</option></select></div>
+<div class="field"><label for="password">Password *</label><input id="password" name="password" type="password" minlength="12" required autocomplete="new-password"><span class="small">Use at least 12 characters.</span></div>
+<div class="field"><label for="confirmPassword">Confirm password *</label><input id="confirmPassword" name="confirmPassword" type="password" minlength="12" required autocomplete="new-password"></div>
+<div class="field full"><label for="address">Residential address *</label><textarea id="address" name="address" rows="3" required autocomplete="street-address"></textarea></div>
+</div>
+<div class="notice">🔐 <strong>Privacy & security:</strong> Your information will be used for church administration and member services. Financial and personal records will be protected by role-based access controls.</div>
+<label><input id="terms" type="checkbox" required> I agree to the KGC privacy terms and confirm that the information provided is accurate. *</label>
+<div class="submit-row"><button class="btn btn-gold btn-wide" type="submit">Submit Registration</button></div>
+<p id="formMessage" role="status" aria-live="polite"></p>
+</form></div></main>
+<script>
+const form=document.getElementById('registrationForm'), photo=document.getElementById('photo'), preview=document.getElementById('photoPreview'), msg=document.getElementById('formMessage');
+photo.addEventListener('change',()=>{const f=photo.files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>5*1024*1024){photo.value='';msg.textContent='Please choose a JPG, PNG or WebP image under 5 MB.';return;}preview.src=URL.createObjectURL(f);msg.textContent='';});
+form.addEventListener('submit',e=>{e.preventDefault();msg.textContent='';if(!form.checkValidity()){form.reportValidity();return;}if(document.getElementById('password').value!==document.getElementById('confirmPassword').value){msg.textContent='Passwords do not match.';return;}msg.textContent='Registration form validated. Backend connection will submit this securely for administrator approval.';msg.style.marginTop='15px';});
+</script></body></html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kingdom Glory Church secure member portal.">
+  <title>KGC Member Portal</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .portal{min-height:calc(100vh - 80px);background:#f5f5f5;padding:32px 0 60px}
+    .portal-grid{display:grid;grid-template-columns:260px 1fr;gap:24px}
+    .sidebar,.panel,.stat{background:#fff;border:1px solid #e6e6e6;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+    .sidebar{padding:22px;align-self:start;position:sticky;top:20px}.profile-mini{text-align:center;padding-bottom:20px;border-bottom:1px solid #eee}
+    .avatar{width:92px;height:92px;border-radius:50%;object-fit:cover;border:3px solid #d6a72c;background:#111;display:block;margin:0 auto 12px}.avatar-fallback{display:flex;align-items:center;justify-content:center;color:#d6a72c;font-size:32px;font-weight:800}
+    .side-nav{display:grid;gap:8px;margin-top:18px}.side-nav a{padding:11px 12px;border-radius:10px;color:#222;text-decoration:none}.side-nav a.active,.side-nav a:hover{background:#111;color:#fff}
+    .portal-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:22px}.portal-head h1{margin:0}.muted{color:#666}.status{display:inline-flex;padding:6px 10px;border-radius:999px;background:#e8f7ed;color:#176b35;font-size:13px;font-weight:700}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}.stat{padding:20px}.stat strong{display:block;font-size:28px;margin-top:8px}.panel{padding:22px;margin-bottom:20px}.panel h2{margin-top:0}.details{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.detail{padding:14px;background:#fafafa;border-radius:10px}.detail span{display:block;font-size:12px;color:#777;margin-bottom:5px}.activity{list-style:none;padding:0;margin:0;display:grid;gap:10px}.activity li{padding:12px;border-left:3px solid #d6a72c;background:#fafafa}.logout{border:0;background:#111;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}.notice{padding:14px;border-radius:10px;background:#fff8e5;border:1px solid #efd27a}.hidden{display:none}
+    @media(max-width:800px){.portal-grid{grid-template-columns:1fr}.sidebar{position:static}.stats{grid-template-columns:1fr}.details{grid-template-columns:1fr}.portal-head{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<header class="site-header"><nav class="navbar container"><a class="brand" href="index.html"><img src="images/kgc-logo.jpg" alt="Kingdom Glory Church logo"><span>Kingdom Glory Church</span></a><a class="btn btn-gold" href="index.html">Church Website</a></nav></header>
+<main class="portal"><div class="container">
+  <div id="error" class="notice hidden"></div>
+  <div class="portal-grid">
+    <aside class="sidebar">
+      <div class="profile-mini"><div id="avatarFallback" class="avatar avatar-fallback">K</div><img id="avatar" class="avatar hidden" alt="Member profile photo"><strong id="sideName">Member</strong><p id="sideBranch" class="muted">KGC Member</p></div>
+      <nav class="side-nav"><a class="active" href="#dashboard">Dashboard</a><a href="#profile">My Profile</a><a href="#activity">Activity</a></nav>
+      <button id="logout" class="logout" style="width:100%;margin-top:20px">Sign out</button>
+    </aside>
+    <section>
+      <div class="portal-head"><div><p class="eyebrow dark">MEMBER PORTAL</p><h1>Welcome, <span id="name">Member</span></h1><p class="muted">Your secure Kingdom Glory Church account.</p></div><span id="status" class="status">ACTIVE</span></div>
+      <div class="stats"><div class="stat"><span class="muted">Membership status</span><strong id="statStatus">Active</strong></div><div class="stat"><span class="muted">Branch</span><strong id="statBranch">—</strong></div><div class="stat"><span class="muted">Ministry</span><strong id="statMinistry">—</strong></div></div>
+      <section id="profile" class="panel"><h2>My Profile</h2><div class="details"><div class="detail"><span>Full name</span><b id="fullName">—</b></div><div class="detail"><span>Email</span><b id="email">—</b></div><div class="detail"><span>Phone</span><b id="phone">—</b></div><div class="detail"><span>Date of birth</span><b id="dob">—</b></div><div class="detail"><span>Gender</span><b id="gender">—</b></div><div class="detail"><span>Branch</span><b id="branch">—</b></div><div class="detail"><span>Ministry / Department</span><b id="ministry">—</b></div><div class="detail"><span>Address</span><b id="address">—</b></div></div></section>
+      <section id="activity" class="panel"><h2>Recent Account Activity</h2><ul id="activityList" class="activity"><li>Loading activity…</li></ul></section>
+      <section class="panel"><h2>Church Services</h2><p class="muted">Upcoming services, events, announcements, giving, attendance and other member features will be connected to this portal in the next modules.</p></section>
+    </section>
+  </div>
+</div></main>
+<script src="member.js"></script>
+</body></html>
