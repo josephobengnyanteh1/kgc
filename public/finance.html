@@ -7,9 +7,18 @@
 <header class="header scrolled"><nav class="nav wrap" aria-label="Main"><a class="brand" href="/"><img src="/images/kgc-logo.jpg" alt="Kingdom Glory Church"><span>KINGDOM GLORY</span></a><ul class="links"><li><a href="/">Website</a></li><li><a href="/member.html">Portal</a></li><li><a href="/finance.html">Giving</a></li><li class="admin-only hidden"><a href="/admin.html">Admin</a></li><li><button id="logout" class="btn btn-sm" type="button">Sign out</button></li></ul><button class="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span></button></nav></header>
 <main class="portal"><div class="wrap" style="max-width:900px">
   <div class="phead"><div><span class="label">GIVING</span><h1>Tithes &amp; offerings</h1></div></div>
-  <div class="notice">Record a payment you have made (cash, mobile money, bank transfer or card). A finance officer will confirm it, and it shows as <b>Pending</b> until then.</div>
+  <div class="notice">Give online below, or record a payment you made in person or by transfer. Manual records show as <b>Pending</b> until a finance officer confirms them.</div>
   <div class="stats"><div class="stat"><small>VERIFIED TOTAL</small><strong id="tTotal">GHS 0.00</strong></div><div class="stat"><small>PENDING</small><strong id="tPending">0</strong></div><div class="stat"><small>RECORDS</small><strong id="tCount">0</strong></div></div>
-  <section class="panel"><h2>Record a payment</h2>
+  <section class="panel" id="online"><h2>Give online</h2>
+    <p style="margin-bottom:1.2rem">Pay securely with Mobile Money or card. Your giving is confirmed automatically.</p>
+    <form id="payForm" novalidate>
+      <div class="field"><span class="lab">TYPE</span><div class="pills"><input type="radio" name="ptype" id="p1" value="TITHE" checked><label for="p1">Tithe</label><input type="radio" name="ptype" id="p2" value="OFFERING"><label for="p2">Offering</label><input type="radio" name="ptype" id="p3" value="DUES"><label for="p3">Dues</label></div></div>
+      <div class="field"><span class="lab">QUICK AMOUNT (GHS)</span><div class="pills" id="quick"><button type="button" class="tab" data-a="50">50</button><button type="button" class="tab" data-a="100">100</button><button type="button" class="tab" data-a="200">200</button><button type="button" class="tab" data-a="500">500</button></div></div>
+      <div class="row2"><div class="field"><label for="pamount">Amount (GHS) *</label><input id="pamount" type="number" inputmode="decimal" min="1" step="0.01" required></div>
+      <div class="field"><label for="pprov">Pay with</label><select id="pprov"></select></div></div>
+      <button class="btn btn-solid" type="submit" id="payBtn">Continue to secure payment</button><p class="msg" id="payMsg" role="status" aria-live="polite"></p>
+    </form></section>
+  <section class="panel"><h2>Already paid? Record it</h2>
     <form id="financeForm" novalidate>
       <div class="field"><span class="lab">TYPE</span><div class="pills"><input type="radio" name="type" id="ty1" value="TITHE" checked><label for="ty1">Tithe</label><input type="radio" name="type" id="ty2" value="OFFERING"><label for="ty2">Offering</label><input type="radio" name="type" id="ty3" value="DUES"><label for="ty3">Dues</label></div></div>
       <div class="row2">

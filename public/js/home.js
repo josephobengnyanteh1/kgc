@@ -75,7 +75,7 @@
   // config → page
   $$('[data-cfg]').forEach(el => { const v = C[el.dataset.cfg]; if (v) el.textContent = v; });
   $$('[data-cfg-href]').forEach(el => { const k = el.dataset.cfgHref, v = C[k]; if (v) el.href = (k === 'email' ? 'mailto:' : 'tel:') + v.replace(/\s/g, ''); });
-  const socials = $('#socials'); if (socials) socials.innerHTML = Object.entries(C.social || {}).filter(([, u]) => u).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>`).join('');
+  
   $$('.live-link').forEach(a => { if (C.liveUrl) { a.href = C.liveUrl; a.target = '_blank'; a.rel = 'noopener'; } else a.href = '#sermons'; });
   $('#year').textContent = new Date().getFullYear();
 
@@ -84,7 +84,7 @@
   const embed = u => { try { const x = new URL(u); if (/youtu\.be$/.test(x.hostname)) return u; return x.href; } catch { return '#'; } };
 
   api('/api/events').then(ev => {
-    $('#events-grid').innerHTML = ev.length ? ev.map((e, i) => { const d = new Date(e.starts_at); return `<article class="card" data-reveal style="--d:${i * .08}s"><div class="date-block"><b>${d.getDate()}</b><small>${d.toLocaleString(undefined, { month: 'short' }).toUpperCase()}</small></div><h3>${esc(e.title)}</h3><p>${esc(e.description || '')}</p><p class="meta">${d.toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })}${e.location ? ' · ' + esc(e.location) : ''}</p></article>`; }).join('') : emptyBox('No events scheduled yet', 'Check back soon, or send us a message to ask what is coming up.');
+    $('#events-grid').innerHTML = ev.length ? ev.map((e, i) => { const d = new Date(e.starts_at); return `<article class="card" data-reveal style="--d:${i * .08}s"><div class="date-block"><b>${d.getDate()}</b><small>${d.toLocaleString(undefined, { month: 'short' }).toUpperCase()}</small></div><h3>${esc(e.title)}</h3><p>${esc(e.description || '')}</p><p class="meta">${d.toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })}${e.location ? ' · ' + esc(e.location) : ''}${e.branch_name ? '<br>' + esc(e.branch_name) : ''}</p></article>`; }).join('') : emptyBox('No events scheduled yet', 'Check back soon, or send us a message to ask what is coming up.');
     window.KGCApp.watch($('#events-grid'));
   }).catch(() => $('#events-grid').innerHTML = emptyBox('Events are on their way', 'We could not load events just now. Please refresh in a moment.'));
 
@@ -96,11 +96,24 @@
     window.KGCApp.watch(box);
   }).catch(() => {});
 
+  const ICON = { facebook_url: ['Facebook', 'M14 9h3V5h-3c-2.8 0-4 1.8-4 4v2H7v4h3v6h4v-6h3l1-4h-4V9.5c0-.3.2-.5.5-.5z'], tiktok_url: ['TikTok', 'M16 3c.3 2.4 1.8 4 4 4.2v3.2c-1.5 0-2.9-.5-4-1.3V15a6 6 0 1 1-6-6c.3 0 .7 0 1 .1v3.300a2.7 2.7 0 1 0 1.7 2.5V3z'], youtube_url: ['YouTube', 'M21.6 7.200a2.5 2.5 0 0 0-1.8-1.8C18.200 5 12 5 12 5s-6.2 0-7.8.4a2.5 2.5 0 0 0-1.8 1.8C2 8.800 2 12 2 12s0 3.2.4 4.8a2.5 2.5 0 0 0 1.8 1.8C5.800 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C22 15.200 22 12 22 12s0-3.2-.4-4.8zM10 15V9l5.200 3z'], instagram_url: ['Instagram', 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm5 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm5.5-1.500a1 1 0 1 0 0 2 1 1 0 0 0 0-2z'] };
+  const socialLinks = b => Object.entries(ICON).filter(([k]) => b[k]).map(([k, [n, d]]) => `<a class="soc" href="${esc(b[k])}" target="_blank" rel="noopener" aria-label="${n}" title="${n}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg></a>`).join('');
   api('/api/branches').then(b => {
     if (!b.length) { $('#branch-grid').innerHTML = emptyBox('Branches coming soon', 'Branch locations will appear here.'); return; }
-    $('#branch-grid').innerHTML = b.map((x, i) => `<article class="card" data-reveal style="--d:${i * .08}s"><span class="label">BRANCH</span><h3>${esc(x.name)}</h3><p>${esc(x.location || 'Location coming soon')}</p><p class="meta">${esc(x.service_times || '')}</p></article>`).join('');
+    $('#branch-grid').innerHTML = b.map((x, i) => `<article class="card branch" data-reveal style="--d:${i * .08}s"><span class="label">${esc((x.location || 'BRANCH').toUpperCase())}</span><h3>${esc(x.name.replace(/^Kingdom Glory Church\s*[-–]?\s*/i, '') || x.name)}</h3><p class="bname">${esc(x.name)}</p>
+      <ul class="binfo"><li>${x.address ? esc(x.address) : '<em>Address coming soon</em>'}</li><li>${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ''))}">${esc(x.phone)}</a>` : '<em>Phone coming soon</em>'}</li>${x.service_times ? `<li>${esc(x.service_times)}</li>` : ''}</ul>
+      <div class="socs">${socialLinks(x)}</div></article>`).join('');
     window.KGCApp.watch($('#branch-grid'));
+    // footer: follow links for whichever branch has them
+    const withSocial = b.filter(x => Object.keys(ICON).some(k => x[k]));
+    if (withSocial.length) $('#socials').innerHTML = withSocial.map(x => `<span class="foot-soc"><span>${esc(x.name.replace(/^Kingdom Glory Church\s*[-–]?\s*/i, ''))}</span>${socialLinks(x)}</span>`).join('');
   }).catch(() => $('#branch-grid').innerHTML = emptyBox('Branches', 'We could not load branches just now. Please refresh in a moment.'));
+
+  api('/api/announcements').then(a => {
+    const box = $('#ann-box'); if (!a.length) return;
+    box.innerHTML = `<div class="ann" data-reveal><span class="label">LATEST ANNOUNCEMENT</span>${a.slice(0, 2).map(x => `<div class="ann-item"><h3>${esc(x.title)}</h3><p>${esc(x.body.length > 220 ? x.body.slice(0, 220) + '…' : x.body)}</p></div>`).join('')}</div>`;
+    window.KGCApp.watch(box);
+  }).catch(() => {});
 
   // contact form
   const f = $('#contactForm');

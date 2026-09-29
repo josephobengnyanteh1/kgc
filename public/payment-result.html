@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payment — Kingdom Glory Church</title><meta name="theme-color" content="#060504"><link rel="icon" href="/images/kgc-logo.jpg"><meta name="robots" content="noindex">
+<script src="/js/boot.js"></script><link rel="stylesheet" href="/css/style.css">
+</head><body>
+<main class="auth" style="grid-template-columns:1fr"><section class="auth-form" style="text-align:center">
+  <img src="/images/kgc-logo.jpg" alt="" style="width:84px;height:84px;border-radius:50%;margin:0 auto 1.6rem;border:1px solid var(--line)">
+  <div id="working"><span class="label">CHECKING YOUR PAYMENT</span><h1>One moment…</h1><p class="lead" style="margin:0 auto">We are confirming with the payment provider. Please do not close this page.</p></div>
+  <div id="ok" class="hidden"><svg class="tick" viewBox="0 0 88 88" style="width:88px;margin:0 auto 1rem;display:block"><circle cx="44" cy="44" r="40"/><path d="M26 46l12 12 24-26"/></svg><span class="label">PAYMENT CONFIRMED</span><h1>Thank you!</h1><p class="lead" style="margin:0 auto" id="okText"></p></div>
+  <div id="wait" class="hidden"><span class="label">STILL PROCESSING</span><h1>Almost there</h1><p class="lead" style="margin:0 auto">Your payment has not been confirmed yet. Mobile Money can take a few minutes. It will appear in your giving history once confirmed.</p></div>
+  <div id="bad" class="hidden"><span class="label">NOT COMPLETED</span><h1>Payment did not go through</h1><p class="lead" style="margin:0 auto">You have not been charged for this attempt. Please try again.</p></div>
+  <p style="margin-top:2rem"><a class="btn" id="back" href="/finance.html">Back to giving</a></p>
+</section></main>
+<script src="/js/app.js"></script><script src="/js/payment-result.js"></script>
+</body></html>

@@ -266,6 +266,22 @@ p{color:var(--mist)}
 .contact-info span{font-family:var(--f-display);font-size:1.6rem;color:var(--ivory)}
 .form-card{padding:clamp(22px,3.5vw,44px);border:1px solid var(--line);border-radius:24px;background:linear-gradient(160deg,var(--panel),var(--coal))}
 
+/* branches + announcements */
+#branch-grid{grid-template-columns:repeat(auto-fit,minmax(255px,1fr))}
+.branch h3{font-size:1.7rem;margin:.4rem 0 .1rem}
+.bname{font-size:.8rem;opacity:.7;margin-bottom:.9rem}
+.binfo{list-style:none;display:grid;gap:.45rem;font-size:.95rem;color:var(--ivory)}
+.binfo em{color:var(--mist)} .binfo a{border-bottom:1px solid var(--gold)}
+.socs{display:flex;gap:10px;margin-top:1.1rem;min-height:38px}
+.soc{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--gold);transition:.35s var(--ease)}
+.soc svg{width:17px;height:17px}.soc:hover{background:var(--gold);color:var(--ink);transform:translateY(-3px)}
+.ann{margin-bottom:24px;padding:1.6rem 1.8rem;border:1px solid var(--line);border-radius:20px;background:linear-gradient(120deg,rgba(240,168,30,.09),transparent)}
+.ann-item+.ann-item{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line-soft)}
+.ann h3{font-size:1.7rem;margin:.3rem 0 .2rem;color:var(--gold-2)}
+.foot-follow{display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:center;margin:-10px 0 34px}
+.foot-soc{display:flex;align-items:center;gap:12px;font-family:var(--f-label);font-size:.72rem;letter-spacing:.14em;color:var(--mist)}
+.foot-soc .soc{width:34px;height:34px}
+
 /* footer */
 .footer{border-top:1px solid var(--line);padding:70px 0 34px;overflow:hidden;background:var(--coal)}
 .word{font-family:var(--f-display);font-weight:600;font-size:clamp(3.2rem,13vw,11rem);line-height:.9;text-align:center;letter-spacing:-.03em;margin-bottom:40px}

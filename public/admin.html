@@ -20,6 +20,35 @@
     <div class="panel"><div class="tscroll"><table><thead><tr><th>Date</th><th>Member</th><th>Type</th><th>Amount</th><th>Method / ref</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fRows"></tbody></table></div></div>
   </section>
 
+  <section id="v-branches" class="hidden">
+    <div class="notice">Add or change each branch's address, phone number and social links here. Changes appear on the website and in the members' app straight away.</div>
+    <div id="bList"></div>
+    <div class="panel hidden" id="bNewWrap"><h2>Add a branch</h2><form class="bform" data-new="1" novalidate></form></div>
+  </section>
+
+  <section id="v-events" class="hidden">
+    <div class="panel"><h2>New event</h2>
+      <form id="eForm" novalidate>
+        <div class="row2"><div class="field"><label for="et">Title *</label><input id="et" name="title" required minlength="2"></div><div class="field"><label for="el">Location</label><input id="el" name="location"></div>
+        <div class="field"><label for="es">Starts *</label><input id="es" name="startsAt" type="datetime-local" required></div><div class="field"><label for="ee">Ends</label><input id="ee" name="endsAt" type="datetime-local"></div></div>
+        <div class="field"><label for="ed">Details</label><textarea id="ed" name="description" rows="3"></textarea></div>
+        <div class="row2"><div class="field"><label for="eb">Branch</label><select id="eb" name="branchId" class="branch-select"></select></div><label class="check" style="align-self:end"><input type="checkbox" name="published" checked> <span>Publish now</span></label></div>
+        <button class="btn btn-solid" type="submit">Save event</button>
+      </form></div>
+    <div class="panel"><div class="tscroll"><table><thead><tr><th>Event</th><th>When</th><th>Branch</th><th>Status</th><th></th></tr></thead><tbody id="eRows"></tbody></table></div></div>
+  </section>
+
+  <section id="v-announcements" class="hidden">
+    <div class="panel"><h2>New announcement</h2>
+      <form id="aForm" novalidate>
+        <div class="field"><label for="at">Title *</label><input id="at" name="title" required minlength="2"></div>
+        <div class="field"><label for="ab">Message *</label><textarea id="ab" name="body" rows="4" required minlength="2"></textarea></div>
+        <div class="row2"><div class="field"><label for="abr">Send to</label><select id="abr" name="branchId" class="branch-select"></select></div><label class="check" style="align-self:end"><input type="checkbox" name="published" checked> <span>Publish now (members get a notification)</span></label></div>
+        <button class="btn btn-solid" type="submit">Save announcement</button>
+      </form></div>
+    <div class="panel"><div class="tscroll"><table><thead><tr><th>Announcement</th><th>For</th><th>Status</th><th></th></tr></thead><tbody id="aRows"></tbody></table></div></div>
+  </section>
+
   <section id="v-messages" class="hidden"><div class="panel"><div class="tscroll"><table><thead><tr><th>From</th><th>Topic</th><th>Message</th><th>Received</th><th></th></tr></thead><tbody id="gRows"></tbody></table></div></div></section>
 </div></main>
 <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="modal-card"><button class="x" id="close" aria-label="Close">×</button><div id="detail"></div></div></div>

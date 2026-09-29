@@ -6,10 +6,10 @@
   const cur = { m: 'PENDING', f: 'PENDING' };
 
   // which tabs this role may use
-  const views = [['members', 'Members', ['SUPER_ADMIN', 'CHURCH_ADMIN', 'BRANCH_ADMIN']], ['finance', 'Finance', null], ['messages', 'Messages', ['SUPER_ADMIN', 'CHURCH_ADMIN']]].filter(v => !v[2] || v[2].includes(me.role));
+  const ADM = ['SUPER_ADMIN', 'CHURCH_ADMIN', 'BRANCH_ADMIN'], views = [['members', 'Members', ADM], ['finance', 'Finance', null], ['events', 'Events', ADM], ['announcements', 'Announcements', ADM], ['branches', 'Branches', ADM], ['messages', 'Messages', ['SUPER_ADMIN', 'CHURCH_ADMIN']]].filter(v => !v[2] || v[2].includes(me.role));
   const tabs = $('#mainTabs');
   tabs.innerHTML = views.map(([id, l]) => `<button class="tab" role="tab" data-v="${id}" aria-selected="false">${l}</button>`).join('');
-  const show = id => { views.forEach(([v]) => $('#v-' + v).classList.toggle('hidden', v !== id)); $$('.tab', tabs).forEach(t => t.setAttribute('aria-selected', t.dataset.v === id)); ({ members: loadM, finance: loadF, messages: loadG })[id](); };
+  const show = id => { views.forEach(([v]) => $('#v-' + v).classList.toggle('hidden', v !== id)); $$('.tab', tabs).forEach(t => t.setAttribute('aria-selected', t.dataset.v === id)); ({ members: loadM, finance: loadF, messages: loadG, events: loadE, announcements: loadA, branches: loadB })[id](); };
   tabs.onclick = e => { const b = e.target.closest('.tab'); if (b) show(b.dataset.v); };
 
   // ---- members
@@ -42,6 +42,65 @@
     } catch (e) { body.innerHTML = empty(5, esc(e.message)); }
   }
 
+
+  // ---- branches (address, phone, social links)
+  const isChurchAdmin = ['SUPER_ADMIN', 'CHURCH_ADMIN'].includes(me.role);
+  let branchCache = [];
+  const F = [['address', 'Address', 'text'], ['phone', 'Telephone', 'tel'], ['email', 'Email', 'email'], ['service_times', 'Service times', 'text'], ['facebook_url', 'Facebook link', 'url'], ['tiktok_url', 'TikTok link', 'url'], ['youtube_url', 'YouTube link', 'url'], ['instagram_url', 'Instagram link', 'url']];
+  const bForm = (b = {}) => `${isChurchAdmin ? `<div class="row2"><div class="field"><label>Branch name *</label><input name="name" required value="${esc(b.name || '')}"></div><div class="field"><label>Town / country label</label><input name="location" value="${esc(b.location || '')}"></div></div>` : ''}
+    <div class="row2">${F.map(([k, l, t]) => `<div class="field"><label>${l}</label><input name="${k}" type="${t}" value="${esc(b[k] || '')}" ${t === 'url' ? 'placeholder="https://"' : ''}></div>`).join('')}</div>
+    ${isChurchAdmin && b.id ? `<label class="check"><input type="checkbox" name="active" ${b.active ? 'checked' : ''}> <span>Show this branch on the website</span></label>` : ''}
+    <button class="btn btn-solid btn-sm" type="submit">${b.id ? 'Save branch' : 'Add branch'}</button>`;
+  async function loadB() {
+    const box = $('#bList'); box.innerHTML = '<div class="panel"><span class="skel" style="display:block"></span></div>';
+    try {
+      branchCache = await api('/api/admin/branches');
+      box.innerHTML = branchCache.map(b => `<div class="panel"><h2 style="font-size:1.7rem">${esc(b.name)} ${b.active ? '' : '<span class="badge SUSPENDED">HIDDEN</span>'}</h2><form class="bform" data-id="${esc(b.id)}" novalidate>${bForm(b)}</form></div>`).join('');
+      $('#bNewWrap').classList.toggle('hidden', !isChurchAdmin); if (isChurchAdmin) $('.bform[data-new]').innerHTML = bForm();
+    } catch (e) { box.innerHTML = `<div class="panel">${esc(e.message)}</div>`; }
+  }
+  const fillBranches = async () => {
+    if (!branchCache.length) { try { branchCache = await api('/api/admin/branches'); } catch { /* ignore */ } }
+    $$('.branch-select').forEach(s => { s.innerHTML = (isChurchAdmin ? '<option value="">All branches</option>' : '') + branchCache.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); });
+  };
+
+  // ---- events
+  const when = v => v ? new Date(v).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  async function loadE() {
+    await fillBranches(); const body = $('#eRows'); body.innerHTML = empty(5, 'Loading…');
+    try {
+      const d = await api('/api/admin/events');
+      body.innerHTML = d.length ? d.map(x => `<tr><td><b>${esc(x.title)}</b><br><small>${esc(x.location || '')}</small></td><td>${when(x.starts_at)}</td><td>${esc(x.branch_name || 'All branches')}</td><td><span class="badge ${x.published ? 'ACTIVE' : 'PENDING'}">${x.published ? 'PUBLISHED' : 'DRAFT'}</span></td><td><div class="acts"><button class="btn btn-sm" data-act="pub" data-kind="events" data-to="${!x.published}" data-id="${esc(x.id)}">${x.published ? 'Hide' : 'Publish'}</button><button class="btn btn-sm btn-danger" data-act="del" data-kind="events" data-id="${esc(x.id)}">Delete</button></div></td></tr>`).join('') : empty(5, 'No events yet. Add the first one above.');
+    } catch (e) { body.innerHTML = empty(5, esc(e.message)); }
+  }
+  async function loadA() {
+    await fillBranches(); const body = $('#aRows'); body.innerHTML = empty(4, 'Loading…');
+    try {
+      const d = await api('/api/admin/announcements');
+      body.innerHTML = d.length ? d.map(x => `<tr><td style="max-width:420px"><b>${esc(x.title)}</b><br><small>${esc(x.body.slice(0, 140))}${x.body.length > 140 ? '…' : ''}</small></td><td>${esc(x.branch_name || 'Everyone')}</td><td><span class="badge ${x.published ? 'ACTIVE' : 'PENDING'}">${x.published ? 'PUBLISHED' : 'DRAFT'}</span></td><td><div class="acts"><button class="btn btn-sm" data-act="pub" data-kind="announcements" data-to="${!x.published}" data-id="${esc(x.id)}">${x.published ? 'Hide' : 'Publish'}</button><button class="btn btn-sm btn-danger" data-act="del" data-kind="announcements" data-id="${esc(x.id)}">Delete</button></div></td></tr>`).join('') : empty(4, 'No announcements yet.');
+    } catch (e) { body.innerHTML = empty(4, esc(e.message)); }
+  }
+
+  document.addEventListener('submit', async e => {
+    const f = e.target; e.preventDefault(); const btn = $('button[type=submit]', f);
+    try {
+      if (f.classList.contains('bform')) {
+        const body = {}; new FormData(f).forEach((v, k) => body[k] = v);
+        if (isChurchAdmin && f.dataset.id) body.active = f.elements.active.checked;
+        btn.disabled = true;
+        const r = f.dataset.new ? await api('/api/admin/branches', { method: 'POST', body }) : await api('/api/admin/branches/' + f.dataset.id, { method: 'PATCH', body });
+        toast(r.message, 'ok'); branchCache = []; loadB();
+      } else if (f.id === 'eForm' || f.id === 'aForm') {
+        if (!f.checkValidity()) { f.reportValidity(); return; }
+        const body = Object.fromEntries(new FormData(f)); body.published = f.elements.published.checked;
+        if (f.id === 'eForm') { body.startsAt = new Date(body.startsAt).toISOString(); body.endsAt = body.endsAt ? new Date(body.endsAt).toISOString() : ''; }
+        btn.disabled = true; await api(f.id === 'eForm' ? '/api/admin/events' : '/api/admin/announcements', { method: 'POST', body });
+        toast('Saved.', 'ok'); f.reset(); f.elements.published.checked = true; f.id === 'eForm' ? loadE() : loadA();
+      }
+    } catch (err) { toast(err.message, 'bad'); }
+    finally { if (btn) btn.disabled = false; }
+  });
+
   // ---- one click handler for every button (no inline onclick, so the security policy stays strict)
   const modal = $('#modal'), detail = $('#detail'), closeM = () => modal.classList.remove('show');
   $('#close').onclick = closeM; modal.onclick = e => e.target === modal && closeM(); addEventListener('keydown', e => e.key === 'Escape' && closeM());
@@ -58,6 +117,11 @@
         b.disabled = true;
         const r = await api(`/api/admin/${act === 'member' ? 'registrations' : 'finance'}/${id}/status`, { method: 'PATCH', body: { status: to } });
         toast(r.message, 'ok'); act === 'member' ? loadM() : loadF();
+      } else if (act === 'pub') {
+        const r = await api(`/api/admin/${b.dataset.kind}/${id}`, { method: 'PATCH', body: { published: b.dataset.to === 'true' } }); toast(r.message, 'ok'); b.dataset.kind === 'events' ? loadE() : loadA();
+      } else if (act === 'del') {
+        if (!confirm('Delete this permanently?')) return;
+        const r = await api(`/api/admin/${b.dataset.kind}/${id}`, { method: 'DELETE' }); toast(r.message, 'ok'); b.dataset.kind === 'events' ? loadE() : loadA();
       } else if (act === 'msg') { await api('/api/admin/messages/' + id, { method: 'PATCH' }); loadG(); }
     } catch (err) { toast(err.message, 'bad'); b.disabled = false; }
   });

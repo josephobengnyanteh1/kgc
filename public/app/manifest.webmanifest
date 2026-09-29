@@ -1,0 +1,21 @@
+{
+  "name": "Kingdom Glory Church — Members",
+  "short_name": "KGC",
+  "description": "The Kingdom Glory Church members' app: events, announcements, giving and your profile.",
+  "id": "/app/",
+  "start_url": "/app/?source=pwa",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060504",
+  "theme_color": "#060504",
+  "icons": [
+    { "src": "/app/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Give", "url": "/app/#give", "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Events", "url": "/app/#events", "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

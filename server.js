@@ -85,6 +85,76 @@ app.disable('x-powered-by');
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
 app.use(compression());
 if (process.env.CORS_ORIGIN) app.use(cors({ origin: process.env.CORS_ORIGIN.split(','), credentials: true }));
+
+/* ---------- Online giving: provider verification + webhooks ---------- */
+async function settlePayment(reference, providerTxId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const t = (await client.query('SELECT * FROM payment_transactions WHERE reference=$1 FOR UPDATE', [reference])).rows[0];
+    if (!t) { await client.query('ROLLBACK'); return false; }
+    if (t.status !== 'VERIFIED') {
+      await client.query(`UPDATE payment_transactions SET status='VERIFIED', provider_transaction_id=$1, verified_at=NOW() WHERE reference=$2`, [String(providerTxId), reference]);
+      await client.query(`INSERT INTO financial_records(member_user_id,branch_id,type,amount,currency,payment_method,reference,description,status,verified_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,'VERIFIED',NOW()) ON CONFLICT(reference) DO NOTHING`,
+        [t.member_user_id, t.branch_id, t.type, t.amount, t.currency, 'ONLINE_' + t.provider, reference, 'Online giving via ' + t.provider]);
+      if (t.member_user_id) await client.query(`INSERT INTO notifications(user_id,title,body,type) VALUES($1,$2,$3,'GIVING')`,
+        [t.member_user_id, 'Thank you for your giving', `Your ${t.type.toLowerCase()} of ${t.currency} ${Number(t.amount).toFixed(2)} was received. God bless you.`]);
+      await client.query(`INSERT INTO audit_logs(actor_user_id,action,target_type,metadata) VALUES($1,'ONLINE_PAYMENT_VERIFIED','payment_transaction',$2)`, [t.member_user_id, { reference, provider: t.provider }]);
+    }
+    await client.query('COMMIT');
+    return true;
+  } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
+  finally { client.release(); }
+}
+
+async function verifyPaystack(reference) {
+  const key = process.env.PAYSTACK_SECRET_KEY; if (!reference || !key) return false;
+  const t = (await q('SELECT * FROM payment_transactions WHERE reference=$1', [reference])).rows[0];
+  if (!t) return false; if (t.status === 'VERIFIED') return true;
+  const resp = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, { headers: { Authorization: `Bearer ${key}` } });
+  if (!resp.ok) return false;
+  const body = await resp.json(), d = body.data;
+  // never trust the redirect: the provider must confirm success, the exact reference, amount and currency
+  if (!body.status || d?.status !== 'success' || d.reference !== reference || Number(d.amount) !== Math.round(Number(t.amount) * 100) || d.currency !== t.currency) return false;
+  return settlePayment(reference, d.id);
+}
+
+async function verifyFlutterwave(transactionId, expectedRef) {
+  const key = process.env.FLW_SECRET_KEY; if (!transactionId || !key) return false;
+  const resp = await fetch(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`, { headers: { Authorization: `Bearer ${key}` } });
+  if (!resp.ok) return false;
+  const body = await resp.json(), d = body.data;
+  if (body.status !== 'success' || d?.status !== 'successful') return false;
+  if (expectedRef && d.tx_ref !== expectedRef) return false;
+  const t = (await q('SELECT * FROM payment_transactions WHERE reference=$1', [d.tx_ref])).rows[0];
+  if (!t) return false; if (t.status === 'VERIFIED') return true;
+  if (d.currency !== t.currency || Number(d.amount) < Number(t.amount)) return false;
+  return settlePayment(d.tx_ref, d.id);
+}
+
+const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
+
+app.post('/api/payments/paystack/webhook', express.raw({ type: 'application/json', limit: '100kb' }), async (req, res) => {
+  try {
+    const secret = process.env.PAYSTACK_SECRET_KEY, sig = req.headers['x-paystack-signature'];
+    if (!secret || !sig || !Buffer.isBuffer(req.body)) return res.status(401).end();
+    if (!safeEq(sig, crypto.createHmac('sha512', secret).update(req.body).digest('hex'))) return res.status(401).end();
+    const event = JSON.parse(req.body.toString('utf8'));
+    if (event.event === 'charge.success') await verifyPaystack(event.data?.reference);
+    res.sendStatus(200);
+  } catch (e) { console.error('Paystack webhook error:', e.message); res.status(400).end(); }
+});
+
+app.post('/api/payments/flutterwave/webhook', express.json({ limit: '100kb' }), async (req, res) => {
+  try {
+    const hash = process.env.FLW_WEBHOOK_SECRET_HASH, sent = req.headers['verif-hash'];
+    if (!hash || !sent || !safeEq(sent, hash)) return res.status(401).end();
+    if (req.body?.data?.id) await verifyFlutterwave(req.body.data.id, null);
+    res.sendStatus(200);
+  } catch (e) { console.error('Flutterwave webhook error:', e.message); res.status(400).end(); }
+});
+
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 app.use(cookieParser());
@@ -145,15 +215,24 @@ app.get('/api/health', async (_req, res) => {
   catch (e) { console.error('Health check failed:', e.message); res.status(503).json({ ok: false, database: 'unreachable' }); }
 });
 
+const BRANCH_PUBLIC = 'id, name, location, address, phone, email, service_times, facebook_url, tiktok_url, youtube_url, instagram_url';
 app.get('/api/branches', async (_req, res) => {
-  const { rows } = await q('SELECT id, name, location, service_times FROM branches WHERE active = TRUE ORDER BY name');
-  res.set('Cache-Control', 'public, max-age=60, s-maxage=60').json(rows);
+  const { rows } = await q(`SELECT ${BRANCH_PUBLIC} FROM branches WHERE active = TRUE ORDER BY sort_order, name`);
+  res.set('Cache-Control', 'public, max-age=30, s-maxage=30').json(rows);
 });
 
-app.get('/api/events', async (_req, res) => {
-  const { rows } = await q(`SELECT id, title, description, starts_at, location FROM events
-    WHERE published = TRUE AND starts_at >= NOW() - INTERVAL '3 hours' ORDER BY starts_at LIMIT 9`);
-  res.set('Cache-Control', 'public, max-age=60, s-maxage=60').json(rows);
+const branchFilter = v => (z.string().uuid().safeParse(v).success ? v : null);
+app.get('/api/events', async (req, res) => {
+  const { rows } = await q(`SELECT e.id, e.title, e.description, e.starts_at, e.ends_at, e.location, b.name AS branch_name FROM church_events e LEFT JOIN branches b ON b.id=e.branch_id
+    WHERE e.published = TRUE AND COALESCE(e.ends_at, e.starts_at + INTERVAL '3 hours') >= NOW() AND ($1::uuid IS NULL OR e.branch_id IS NULL OR e.branch_id=$1)
+    ORDER BY e.starts_at LIMIT 12`, [branchFilter(req.query.branch)]);
+  res.set('Cache-Control', 'public, max-age=30, s-maxage=30').json(rows);
+});
+
+app.get('/api/announcements', async (req, res) => {
+  const { rows } = await q(`SELECT a.id, a.title, a.body, a.published_at, b.name AS branch_name FROM announcements a LEFT JOIN branches b ON b.id=a.branch_id
+    WHERE a.published = TRUE AND ($1::uuid IS NULL OR a.branch_id IS NULL OR a.branch_id=$1) ORDER BY a.published_at DESC LIMIT 10`, [branchFilter(req.query.branch)]);
+  res.set('Cache-Control', 'public, max-age=30, s-maxage=30').json(rows);
 });
 
 app.get('/api/sermons', async (_req, res) => {
@@ -309,6 +388,7 @@ app.patch('/api/admin/registrations/:id/status', requireAuth, requireAdmin, asyn
     await client.query('BEGIN');
     await client.query('UPDATE users SET status=$1, updated_at=NOW() WHERE id=$2', [p.data.status, item.id]);
     await audit(client, req.user.sub, `MEMBER_STATUS_${p.data.status}`, 'user', item.id, { from: item.status, to: p.data.status }, req);
+    if (p.data.status === 'ACTIVE') await client.query(`INSERT INTO notifications(user_id,title,body,type) VALUES($1,'Welcome to KGC','Your membership has been approved. We are glad you are part of the family.','WELCOME')`, [item.id]);
     await client.query('COMMIT');
     res.json({ message: `Member is now ${p.data.status.toLowerCase()}.`, status: p.data.status });
   } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
@@ -400,6 +480,199 @@ app.patch('/api/admin/messages/:id', requireAuth, requireChurchAdmin, async (req
   if (!z.string().uuid().safeParse(req.params.id).success) return res.status(400).json({ message: 'Invalid id.' });
   await q('UPDATE messages SET handled = NOT handled WHERE id=$1', [req.params.id]);
   res.json({ message: 'Updated.' });
+});
+
+
+/* ---------- Member: notifications + online giving ---------- */
+app.get('/api/member/notifications', requireAuth, async (req, res) => {
+  const { rows } = await q('SELECT id,title,body,type,read_at,created_at FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50', [req.user.sub]);
+  res.json(rows);
+});
+app.patch('/api/member/notifications/read-all', requireAuth, async (req, res) => {
+  await q('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE user_id=$1 AND read_at IS NULL', [req.user.sub]);
+  res.json({ message: 'All notifications marked as read.' });
+});
+app.patch('/api/member/notifications/:id/read', requireAuth, async (req, res) => {
+  if (!z.string().uuid().safeParse(req.params.id).success) return res.status(400).json({ message: 'Invalid id.' });
+  await q('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2', [req.params.id, req.user.sub]);
+  res.json({ message: 'Marked as read.' });
+});
+
+app.get('/api/payments/config', (_req, res) => res.json({ paystack: !!process.env.PAYSTACK_SECRET_KEY, flutterwave: !!process.env.FLW_SECRET_KEY }));
+
+const baseUrl = req => (process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+app.post('/api/payments/create', requireAuth, async (req, res) => {
+  const p = z.object({
+    provider: z.enum(['PAYSTACK', 'FLUTTERWAVE']), type: z.enum(['TITHE', 'OFFERING', 'DUES']),
+    amount: z.coerce.number().min(1, 'Minimum amount is GHS 1').max(1000000), source: z.enum(['web', 'app']).default('web')
+  }).safeParse(req.body);
+  if (!p.success) return res.status(400).json({ message: firstIssue(p.error) });
+  const d = p.data;
+  if ((d.provider === 'PAYSTACK' && !process.env.PAYSTACK_SECRET_KEY) || (d.provider === 'FLUTTERWAVE' && !process.env.FLW_SECRET_KEY))
+    return res.status(503).json({ message: `${d.provider === 'PAYSTACK' ? 'Paystack' : 'Flutterwave'} is not switched on yet. Please choose another option or contact the church office.` });
+  const me = (await q('SELECT u.email, m.full_name, m.branch_id FROM users u JOIN members m ON m.user_id=u.id WHERE u.id=$1', [req.user.sub])).rows[0];
+  if (!me) return res.status(404).json({ message: 'Member profile not found.' });
+  const reference = `KGC-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+  await q(`INSERT INTO payment_transactions(reference,provider,member_user_id,branch_id,type,amount,currency,donor_name,donor_email) VALUES($1,$2,$3,$4,$5,$6,'GHS',$7,$8)`,
+    [reference, d.provider, req.user.sub, me.branch_id, d.type, d.amount, me.full_name, me.email]);
+  const back = `${baseUrl(req)}/payment-result.html?provider=${d.provider}&reference=${encodeURIComponent(reference)}&from=${d.source}`;
+  try {
+    let url;
+    if (d.provider === 'PAYSTACK') {
+      const r = await fetch('https://api.paystack.co/transaction/initialize', { method: 'POST', headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: me.email, amount: String(Math.round(d.amount * 100)), currency: 'GHS', reference, callback_url: back, channels: ['card', 'mobile_money', 'bank', 'ussd'], metadata: { type: d.type } }) });
+      const b = await r.json(); if (!r.ok || !b.status) throw new Error(b.message || 'Paystack initialisation failed'); url = b.data.authorization_url;
+    } else {
+      const r = await fetch('https://api.flutterwave.com/v3/payments', { method: 'POST', headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tx_ref: reference, amount: d.amount, currency: 'GHS', redirect_url: back, customer: { email: me.email, name: me.full_name }, payment_options: 'card,mobilemoneyghana', customizations: { title: 'Kingdom Glory Church Giving' } }) });
+      const b = await r.json(); if (!r.ok || b.status !== 'success') throw new Error(b.message || 'Flutterwave initialisation failed'); url = b.data.link;
+    }
+    await q('UPDATE payment_transactions SET checkout_url=$1 WHERE reference=$2', [url, reference]);
+    res.json({ reference, checkoutUrl: url });
+  } catch (e) {
+    console.error('Payment start failed:', e.message);
+    await q(`UPDATE payment_transactions SET status='FAILED' WHERE reference=$1`, [reference]);
+    res.status(502).json({ message: 'We could not start the payment. Please try again in a moment.' });
+  }
+});
+
+app.get('/api/payments/status/:reference', async (req, res) => {
+  const ref = String(req.params.reference).slice(0, 120);
+  const get = async () => (await q('SELECT reference,provider,type,amount,currency,status,created_at,verified_at FROM payment_transactions WHERE reference=$1', [ref])).rows[0];
+  let t = await get(); if (!t) return res.status(404).json({ message: 'Payment not found.' });
+  if (t.status === 'PENDING') {
+    try {
+      if (t.provider === 'PAYSTACK') await verifyPaystack(ref);
+      else if (req.query.transaction_id) await verifyFlutterwave(String(req.query.transaction_id), ref);
+    } catch (e) { console.error('Status verify failed:', e.message); }
+    t = await get();
+  }
+  res.json(t);
+});
+
+/* ---------- Admin: events, announcements, branches ---------- */
+const nullableUuid = z.preprocess(v => (v === '' ? null : v), z.string().uuid().nullable().optional());
+const eventSchema = z.object({
+  title: z.string().trim().min(2).max(180), description: emptyToUndef(z.string().trim().max(5000)), location: emptyToUndef(z.string().trim().max(255)),
+  startsAt: z.coerce.date(), endsAt: z.preprocess(v => (v === '' || v == null ? undefined : v), z.coerce.date().optional()),
+  branchId: nullableUuid, published: z.boolean().default(false)
+});
+const annSchema = z.object({ title: z.string().trim().min(2).max(180), body: z.string().trim().min(2).max(10000), branchId: nullableUuid, published: z.boolean().default(false) });
+const idOk = (req, res) => z.string().uuid().safeParse(req.params.id).success || (res.status(400).json({ message: 'Invalid id.' }), false);
+
+// a branch admin may only touch their own branch; church admins may touch everything
+async function scopedBranchId(req, res, requested) {
+  const scope = await branchScope(req, res); if (scope === undefined) return undefined;
+  return scope ? scope : (requested || null);
+}
+async function ownsRow(req, res, table, id) {
+  const row = (await q(`SELECT * FROM ${table} WHERE id=$1`, [id])).rows[0];
+  if (!row) { res.status(404).json({ message: 'Not found.' }); return null; }
+  const scope = await branchScope(req, res); if (scope === undefined) return null;
+  if (scope && row.branch_id !== scope) { res.status(403).json({ message: 'You can only manage your own branch.' }); return null; }
+  return row;
+}
+async function notifyMembers(branchId, title, body) {
+  await q(`INSERT INTO notifications(user_id,title,body,type) SELECT u.id,$1,$2,'ANNOUNCEMENT' FROM users u JOIN members m ON m.user_id=u.id WHERE u.status='ACTIVE' AND ($3::uuid IS NULL OR m.branch_id=$3)`,
+    [title, body.slice(0, 300), branchId]);
+}
+
+app.get('/api/admin/events', requireAuth, requireAdmin, async (req, res) => {
+  const scope = await branchScope(req, res); if (scope === undefined) return;
+  const { rows } = await q(`SELECT e.*, b.name AS branch_name FROM church_events e LEFT JOIN branches b ON b.id=e.branch_id WHERE ($1::uuid IS NULL OR e.branch_id=$1) ORDER BY e.starts_at DESC LIMIT 300`, [scope]);
+  res.json(rows);
+});
+app.post('/api/admin/events', requireAuth, requireAdmin, async (req, res) => {
+  const p = eventSchema.safeParse(req.body); if (!p.success) return res.status(400).json({ message: firstIssue(p.error) });
+  const d = p.data, branchId = await scopedBranchId(req, res, d.branchId); if (branchId === undefined) return;
+  const { rows } = await q(`INSERT INTO church_events(title,description,location,starts_at,ends_at,branch_id,published,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [d.title, d.description || null, d.location || null, d.startsAt, d.endsAt || null, branchId, d.published, req.user.sub]);
+  await audit({ query: q }, req.user.sub, 'EVENT_CREATED', 'church_event', rows[0].id, { title: d.title }, req);
+  res.status(201).json(rows[0]);
+});
+app.patch('/api/admin/events/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!idOk(req, res)) return;
+  const p = z.object({ published: z.boolean() }).safeParse(req.body); if (!p.success) return res.status(400).json({ message: 'Invalid update.' });
+  const row = await ownsRow(req, res, 'church_events', req.params.id); if (!row) return;
+  await q('UPDATE church_events SET published=$1, updated_at=NOW() WHERE id=$2', [p.data.published, row.id]);
+  await audit({ query: q }, req.user.sub, p.data.published ? 'EVENT_PUBLISHED' : 'EVENT_UNPUBLISHED', 'church_event', row.id, {}, req);
+  res.json({ message: p.data.published ? 'Event published.' : 'Event hidden.' });
+});
+app.delete('/api/admin/events/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!idOk(req, res)) return; const row = await ownsRow(req, res, 'church_events', req.params.id); if (!row) return;
+  await q('DELETE FROM church_events WHERE id=$1', [row.id]); await audit({ query: q }, req.user.sub, 'EVENT_DELETED', 'church_event', row.id, {}, req);
+  res.json({ message: 'Event deleted.' });
+});
+
+app.get('/api/admin/announcements', requireAuth, requireAdmin, async (req, res) => {
+  const scope = await branchScope(req, res); if (scope === undefined) return;
+  const { rows } = await q(`SELECT a.*, b.name AS branch_name FROM announcements a LEFT JOIN branches b ON b.id=a.branch_id WHERE ($1::uuid IS NULL OR a.branch_id=$1) ORDER BY a.created_at DESC LIMIT 300`, [scope]);
+  res.json(rows);
+});
+app.post('/api/admin/announcements', requireAuth, requireAdmin, async (req, res) => {
+  const p = annSchema.safeParse(req.body); if (!p.success) return res.status(400).json({ message: firstIssue(p.error) });
+  const d = p.data, branchId = await scopedBranchId(req, res, d.branchId); if (branchId === undefined) return;
+  const { rows } = await q(`INSERT INTO announcements(title,body,branch_id,published,published_at,created_by) VALUES($1,$2,$3,$4,CASE WHEN $4 THEN NOW() END,$5) RETURNING *`, [d.title, d.body, branchId, d.published, req.user.sub]);
+  await audit({ query: q }, req.user.sub, 'ANNOUNCEMENT_CREATED', 'announcement', rows[0].id, { title: d.title }, req);
+  if (d.published) await notifyMembers(branchId, d.title, d.body);
+  res.status(201).json(rows[0]);
+});
+app.patch('/api/admin/announcements/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!idOk(req, res)) return;
+  const p = z.object({ published: z.boolean() }).safeParse(req.body); if (!p.success) return res.status(400).json({ message: 'Invalid update.' });
+  const row = await ownsRow(req, res, 'announcements', req.params.id); if (!row) return;
+  await q(`UPDATE announcements SET published=$1, published_at=CASE WHEN $1 THEN COALESCE(published_at,NOW()) END, updated_at=NOW() WHERE id=$2`, [p.data.published, row.id]);
+  await audit({ query: q }, req.user.sub, p.data.published ? 'ANNOUNCEMENT_PUBLISHED' : 'ANNOUNCEMENT_UNPUBLISHED', 'announcement', row.id, {}, req);
+  if (p.data.published && !row.published_at) await notifyMembers(row.branch_id, row.title, row.body);
+  res.json({ message: p.data.published ? 'Announcement published.' : 'Announcement hidden.' });
+});
+app.delete('/api/admin/announcements/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!idOk(req, res)) return; const row = await ownsRow(req, res, 'announcements', req.params.id); if (!row) return;
+  await q('DELETE FROM announcements WHERE id=$1', [row.id]); await audit({ query: q }, req.user.sub, 'ANNOUNCEMENT_DELETED', 'announcement', row.id, {}, req);
+  res.json({ message: 'Announcement deleted.' });
+});
+
+// Branch details (address, phone, social links) — edit any time from the admin dashboard
+const urlField = z.preprocess(v => (v === '' || v == null ? null : v), z.string().trim().max(500).refine(u => /^https?:\/\/[^\s]+$/i.test(u), 'Links must start with https://').nullable().optional());
+const textField = (n) => z.preprocess(v => (v === '' || v == null ? null : v), z.string().trim().max(n).nullable().optional());
+const branchFields = z.object({
+  address: textField(1000), phone: textField(60), email: z.preprocess(v => (v === '' || v == null ? null : v), z.string().trim().email().max(320).nullable().optional()),
+  service_times: textField(255), facebook_url: urlField, tiktok_url: urlField, youtube_url: urlField, instagram_url: urlField
+});
+const branchAdminOnly = z.object({ name: z.string().trim().min(2).max(120), location: textField(255), active: z.boolean(), sort_order: z.coerce.number().int().min(0).max(999) }).partial();
+
+app.get('/api/admin/branches', requireAuth, requireAdmin, async (req, res) => {
+  const scope = await branchScope(req, res); if (scope === undefined) return;
+  const { rows } = await q(`SELECT id, name, location, active, sort_order, ${BRANCH_PUBLIC.split(', ').slice(3).join(', ')} FROM branches WHERE ($1::uuid IS NULL OR id=$1) ORDER BY sort_order, name`, [scope]);
+  res.json(rows);
+});
+app.post('/api/admin/branches', requireAuth, requireChurchAdmin, async (req, res) => {
+  const p = branchFields.extend({ name: z.string().trim().min(2).max(120), location: textField(255) }).safeParse(req.body);
+  if (!p.success) return res.status(400).json({ message: firstIssue(p.error) });
+  const d = p.data;
+  try {
+    const { rows } = await q(`INSERT INTO branches(name,location,address,phone,email,service_times,facebook_url,tiktok_url,youtube_url,instagram_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [d.name, d.location ?? null, d.address ?? null, d.phone ?? null, d.email ?? null, d.service_times ?? null, d.facebook_url ?? null, d.tiktok_url ?? null, d.youtube_url ?? null, d.instagram_url ?? null]);
+    await audit({ query: q }, req.user.sub, 'BRANCH_CREATED', 'branch', rows[0].id, { name: d.name }, req);
+    res.status(201).json({ message: 'Branch added.', id: rows[0].id });
+  } catch (e) { if (e.code === '23505') return res.status(409).json({ message: 'A branch with that name already exists.' }); throw e; }
+});
+app.patch('/api/admin/branches/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!idOk(req, res)) return;
+  const scope = await branchScope(req, res); if (scope === undefined) return;
+  if (scope && scope !== req.params.id) return res.status(403).json({ message: 'You can only edit your own branch.' });
+  const schema = scope ? branchFields : branchFields.extend(branchAdminOnly.shape);
+  const p = schema.partial().safeParse(req.body); if (!p.success) return res.status(400).json({ message: firstIssue(p.error) });
+  const sets = [], vals = [];
+  for (const [k, v] of Object.entries(p.data)) { if (v === undefined) continue; vals.push(v); sets.push(`${k}=$${vals.length}`); }
+  if (!sets.length) return res.status(400).json({ message: 'Nothing to update.' });
+  vals.push(req.params.id);
+  try {
+    const r = await q(`UPDATE branches SET ${sets.join(', ')} WHERE id=$${vals.length}`, vals);
+    if (!r.rowCount) return res.status(404).json({ message: 'Branch not found.' });
+  } catch (e) { if (e.code === '23505') return res.status(409).json({ message: 'A branch with that name already exists.' }); throw e; }
+  await audit({ query: q }, req.user.sub, 'BRANCH_UPDATED', 'branch', req.params.id, { fields: Object.keys(p.data) }, req);
+  res.json({ message: 'Branch saved.' });
 });
 
 /* ---------- Fallbacks ---------- */
